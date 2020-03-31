@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <title>Data Intelligence Task</title>
+
+  <!-- Bootstrap core CSS -->
+  <link href="{{ url_for('static', filename='bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
+
+  <!-- Custom styles for this template -->
+  <link href="{{ url_for('static', filename='simple-sidebar.css') }}" rel="stylesheet">
+
+  <!-- Google fonts -->
+  <link href="https://fonts.googleapis.com/css?family=Noto+Sans+KR&display=swap" rel="stylesheet">
+
+  <style>
+    body {font-family: 'Noto Sans KR';}
+  </style>
+
+</head>
+
+<body>
+
+  <div class="d-flex" id="wrapper">
+
+    <!-- Sidebar -->
+    <div class="bg-light border-right" id="sidebar-wrapper">
+      <div class="sidebar-heading">Data Intelligence Task</div>
+      <div class="list-group list-group-flush">
+        <a href="#" class="list-group-item list-group-item-action bg-light">Predictive Maintenance</a>
+        <a href="/mi" class="list-group-item list-group-item-action bg-light">Material Informatics</a>
+        <a href="#" class="list-group-item list-group-item-action bg-light">Overview</a>
+        <a href="#" class="list-group-item list-group-item-action bg-light">Events</a>
+        <a href="#" class="list-group-item list-group-item-action bg-light">Profile</a>
+        <a href="#" class="list-group-item list-group-item-action bg-light">Status</a>
+      </div>
+    </div>
+    <!-- /#sidebar-wrapper -->
+
+    <!-- Page Content -->
+    <div id="page-content-wrapper">
+
+      <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom">
+        <button class="btn btn-primary" id="menu-toggle">Menu</button>
+
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+          <ul class="navbar-nav ml-auto mt-2 mt-lg-0">
+            <li class="nav-item active">
+              <a class="nav-link" href="#">Home <span class="sr-only">(current)</span></a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#">Link</a>
+            </li>
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                Dropdown
+              </a>
+              <div class="dropdown-menu dropdown-menu-right" aria-labelledby="navbarDropdown">
+                <a class="dropdown-item" href="#">Action</a>
+                <a class="dropdown-item" href="#">Another action</a>
+                <div class="dropdown-divider"></div>
+                <a class="dropdown-item" href="#">Something else here</a>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </nav>
+
+      <div class="container-fluid">
+        <h1 class="mt-4">화학 공정 설비예지보전 (Predictive Maintanence)</h1>
+        <h4 class="mt-4">사람이 수백개의 공정 센서를 지속적으로 관찰하고, 공정 이상(Anomaly)을 파악하기란 매우 어렵습니다.
+                         본 데모는 33개의 공정 센서(온도, 압력, 유량 등)로부터 데이터를 입력받고, 
+                         데이터의 패턴을 분석하여 공정 이상 발생을 예측합니다. 
+                         또한, 이상 발생 시 어떤 센서의 문제로 인한 것인지 실시간으로 분석하여 시각화합니다.<br>
+        <h5 class="mt-4">본 데모에서는 0~160 step은 정상 구간이며 160 step 이후로는 공정 이상이 발생합니다.</h5>
+        <h5 class="mt-4">1번 그래프는 33개의 공정 센서 데이터를 나타낸 것이고,<br>
+                         2번 그래프는 이상 발생 지표 값을 계산하여 데이터의 패턴을 한 눈에 알아보기 쉽도록 시각화하였습니다.<br>
+                         3번 그래프는 이상 발생에 어떤 센서가 얼마만큼의 영향을 미쳤는지를 계산하였습니다.</h5>
+        <div id="chart"></div>
+        <div id="score"></div>
+        <div id="xai"></div>
+      </div>
+    </div>
+    <!-- /#page-content-wrapper -->
+
+  </div>
+  <!-- /#wrapper -->
+
+  <!-- plotly -->
+  <script src="{{ url_for('static', filename='plotly.js') }}"></script>
+
+  <!-- Bootstrap core JavaScript -->
+  <script src="{{ url_for('static', filename='jquery/jquery.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+
+  <!-- Menu Toggle Script -->
+  <script>
+    // get data
+    var data = JSON.parse('{{data}}');
+    var score = JSON.parse('{{score}}');
+    var xai = JSON.parse('{{xai}}');
+
+    // toggle menu
+    $("#menu-toggle").click(function(e) {
+      e.preventDefault();
+      $("#wrapper").toggleClass("toggled");
+    });
+    
+    // random color generator
+    function getRandomColor() 
+    {
+      var letters = '0123456789ABCDEF';
+      var color = '#';
+      for (var i = 0; i < 6; i++) 
+      {
+        color += letters[Math.floor(Math.random() * 16)];
+      }
+
+      return color;
+    }
+
+    var num_ch = data.length;
+    var speed = 600;
+
+    var data_chart = [];
+    var data_score = [];
+    var data_xai = [];
+    var xlabel = [];
+
+    // data layout
+    for(var i=0; i<num_ch; i++) 
+    {
+      var new_layout = {y: [0], mode: 'lines', line: {color: getRandomColor()}};
+      data_chart.push(new_layout);
+    }
+
+    data_score.push({y: [0], mode: 'lines', line: {color: getRandomColor()}});
+
+    for(var i=0; i<data.length; i++) xlabel.push('ch' + String(i+1));
+    data_xai.push({x: xlabel, y: new Array(data.length).fill(0), type: 'bar'});
+
+    // plot layout
+    var layout_chart = {title: {text: '1. 공정 센서 데이터 입력', font: {size: 24}}};
+    var layout_score = {title: {text: '2. 이상 발생 지표', font: {size: 24}}};
+    var layout_xai = {title: {text: '3. 이상 발생에 대한 센서 영향도 계산', font: {size: 24}}};
+
+    // plot init
+    Plotly.newPlot('chart', data_chart, layout_chart);
+    Plotly.newPlot('score', data_score, layout_score);
+    Plotly.newPlot('xai', data_xai, layout_xai);
+
+    // update
+    var cnt = 0;
+    var interval = setInterval(function() {
+      var chart_sample = [];
+      var data_xai = [];
+      for(var i=0; i<num_ch; i++) chart_sample.push([data[i][cnt]]);
+      var update_chart = {y: chart_sample};
+      var update_score = {y: [[score[cnt]]]};
+      data_xai.push({x: xlabel, y: xai[cnt], type: 'bar'});
+      Plotly.extendTraces('chart', update_chart, [...Array(num_ch).keys()]);
+      Plotly.extendTraces('score', update_score, [0]);
+      Plotly.newPlot('xai', data_xai, layout_xai);
+      if(++cnt === data[0].length) clearInterval(interval);
+    }, speed);
+  </script>
+
+</body>
+
+</html>

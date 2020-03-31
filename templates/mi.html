@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="">
+  <meta name="author" content="">
+
+  <title>Data Intelligence Task</title>
+
+  <!-- Bootstrap core CSS -->
+  <link href="{{ url_for('static', filename='bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
+
+  <!-- Custom styles for this template -->
+  <link href="{{ url_for('static', filename='simple-sidebar.css') }}" rel="stylesheet">
+
+  <!-- Google fonts -->
+  <link href="https://fonts.googleapis.com/css?family=Noto+Sans+KR&display=swap" rel="stylesheet">
+
+  <style>
+    body {font-family: 'Noto Sans KR';}
+  </style>
+
+</head>
+
+<body>
+
+  <div class="d-flex" id="wrapper">
+
+    <!-- Sidebar -->
+    <div class="bg-light border-right" id="sidebar-wrapper">
+      <div class="sidebar-heading">Data Intelligence Task</div>
+      <div class="list-group list-group-flush">
+        <a href="/" class="list-group-item list-group-item-action bg-light">Predictive Maintenance</a>
+        <a href="#" class="list-group-item list-group-item-action bg-light">Material Informatics</a>
+        <a href="#" class="list-group-item list-group-item-action bg-light">Overview</a>
+        <a href="#" class="list-group-item list-group-item-action bg-light">Events</a>
+        <a href="#" class="list-group-item list-group-item-action bg-light">Profile</a>
+        <a href="#" class="list-group-item list-group-item-action bg-light">Status</a>
+      </div>
+    </div>
+    <!-- /#sidebar-wrapper -->
+
+    <!-- Page Content -->
+    <div id="page-content-wrapper">
+
+      <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom">
+        <button class="btn btn-primary" id="menu-toggle">Menu</button>
+
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+          <ul class="navbar-nav ml-auto mt-2 mt-lg-0">
+            <li class="nav-item active">
+              <a class="nav-link" href="#">Home <span class="sr-only">(current)</span></a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#">Link</a>
+            </li>
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                Dropdown
+              </a>
+              <div class="dropdown-menu dropdown-menu-right" aria-labelledby="navbarDropdown">
+                <a class="dropdown-item" href="#">Action</a>
+                <a class="dropdown-item" href="#">Another action</a>
+                <div class="dropdown-divider"></div>
+                <a class="dropdown-item" href="#">Something else here</a>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </nav>
+
+      <div class="container-fluid">
+        <h1 class="mt-4">Material Informatics 데모</h1>
+        <h4 class="mt-4">본 데모는 미리 학습된 화합물 데이터를 바탕으로
+                         우리가 원하는 물성을 가진 새 화합물을 생성합니다.</h4>
+        <label>참고 논문: R. Bombarelli et al., Automatic Chemical Design Using a Data-Driven Continuous Representation of Molecules, ACS 2018</label>
+      </div>
+
+      <div class="container-fluid">
+        <!-- Title -->
+        <h4 class="mt-4"><strong>Step 1.</strong> 얻고 싶은 화합물과 비슷한 물성을 가진 화합물(Reference)을 입력하세요. 
+          (<a href="https://lsy5518.wordpress.com/2014/11/10/1198/">SMILES 규칙</a>에 따라)</h4>
+        <label for="basic-url">
+          ex1) C1=CC=CC=C1 (벤젠 - 페브리즈)<br>
+          ex2) CC(=O)NC1=CC=C(C=C1)O (아세트아미노펜 - 해열제)<br>
+          ex3) CSCC(=O)NNC(=O)c1c(C)oc(C)c1C
+        </label>
+        <div class="input-group mb-5">
+          <input type="text" class="form-control col-3" id="Chemical" placeholder="Chemical here" aria-label="Chemical" aria-describedby="basic-addon2">
+          <div class="input-group-append">
+            <button class="btn btn-outline-secondary" type="button">Button</button>
+          </div>
+        </div>
+
+        <!-- Contents -->
+        <h4 class="mt-4"><strong>Step 2.</strong> 결과를 확인하세요. (Reference와 비슷한 화합물 순으로 출력됩니다.)</h4>
+        <label id="pred"></label>
+        <div class="row" id="results"></div>
+    </div>
+    <!-- /#page-content-wrapper -->
+
+  </div>
+  <!-- /#wrapper -->
+
+  <!-- Bootstrap core JavaScript -->
+  <script src="{{ url_for('static', filename='jquery/jquery.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+
+  <!-- Smiles Drawer-->
+  <script src="https://unpkg.com/smiles-drawer@1.0.10/dist/smiles-drawer.min.js"></script>
+
+  <!-- Menu Toggle Script -->
+  <script>
+  // smiles init
+  var options = {};
+  var smilesDrawer = new SmilesDrawer.Drawer(options);
+
+  // toggle menu
+  $("#menu-toggle").click(function(e) {
+    e.preventDefault();
+    $("#wrapper").toggleClass("toggled");
+  });
+
+  // ajax with chemicalVAE
+  $(function(){
+    $('button').click(function() {
+        var chemical = $('#Chemical').val();
+        $.ajax({
+          url: '/mi/generate',
+          data: {'smiles': chemical},
+          type: 'POST',
+          success: function(response) {
+            $('#pred').val(''); // clear
+            $('#results').empty(); // clear
+            var response = $.parseJSON(response);
+            var qed = parseFloat(response['pred'][0]).toFixed(2);
+            var sas = parseFloat(response['pred'][1]).toFixed(2);
+            var logp = parseFloat(response['pred'][2]).toFixed(2);
+
+            // properties
+            $('#pred').text('Reference 물성 예측치 - QED: ' + qed.toString() + ', SAS: ' + sas.toString() + ', logP: ' + logp.toString());
+            
+            // results
+            for(var i=0;i<response['smiles'].length;i++) {
+              var count = i.toString();
+              $('#results').append('<div class="col-sm-3" style="padding-bottom: 20px"> \
+                                      <div class="card" id="results' + count + '"> \
+                                        <canvas id="smiles' + count + '"></canvas> \
+                                        <div class="card-body"> \
+                                          <h5 class="card-title" id="results_smiles' + count + '"></h5> \
+                                          <p class="card-text" id="results_dist_prob' + count + '"></p> \
+                                        </div> \
+                                      </div> \
+                                    </div>');
+              var smiles = response['smiles'][i];
+              SmilesDrawer.parse(smiles, function(tree) {
+                smilesDrawer.draw(tree, 'smiles' + count, 'light', false);
+                $('#smiles' + count).removeAttr('style');
+              });
+              var dist = parseFloat(response['dist'][i]).toFixed(2);
+              var freq = (parseFloat(response['freq'][i]) * 100).toFixed(2);
+              
+              $('#results_smiles' + count).text(smiles);
+              $('#results_dist_prob' + count).html('생성된 화합물은 Reference와의 상대적 거리가 약 \
+                                                    <strong>' + dist.toString() + '</strong> 정도 떨어져 있으며, \
+                                                    <strong>' + freq.toString() + '%</strong>의 확률로 생성되었습니다.');
+            }
+            console.log(response);
+          },
+          error: function(error) {
+            // alert(error);
+            alert('SMILES 규칙에 위반되거나 기학습된 데이터로 생성할 수 없습니다.');
+            console.log(error);
+          }
+        });
+    });
+  });
+  </script>
+
+</body>
+
+</html>
