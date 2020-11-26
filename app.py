@@ -2,17 +2,25 @@ import warnings
 warnings.filterwarnings("ignore")
 
 import json
+import pickle
 import numpy as np
 import pandas as pd
+import os.path as op
 import tensorflow as tf
 from scipy import stats
 from flask import Flask, render_template, request, json
 
-from chemvae.vae_utils import VAEUtils
 from chemvae import mol_utils as mu
-from rdkit.Chem import AllChem as Chem
-from rdkit.Chem import PandasTools
+from chemvae.vae_utils import VAEUtils
+from sascorer import *
 
+from rdkit import Chem
+from rdkit.six import iteritems
+from rdkit.Chem import Crippen
+from rdkit.Chem import PandasTools
+from rdkit.Chem import rdMolDescriptors
+
+_fscores = None
 app = Flask(__name__)
 vae = VAEUtils(directory='/project/myflask/zinc_properties')
 graph = tf.get_default_graph()
@@ -44,6 +52,7 @@ def viewMI():
 @app.route('/mi/generate', methods=['POST'])
 def generateMI():
     global graph
+
     with graph.as_default():
         # input smiles
         smiles_1 = mu.canon_smiles(request.form['smiles'])
@@ -53,10 +62,45 @@ def generateMI():
         y_1 = vae.predict_prop_Z(z_1)[0] # properties
 
         # generate molecules
-        df = vae.z_to_smiles(z_1, decode_attempts=80, noise_norm=5)
+        df = vae.z_to_smiles(z_1, decode_attempts=200, noise_norm=10)
+        df['distance'] = (1 - (df['distance'] / df['distance'].sum())) * 100
 
-        return json.dumps({'status': 1, 'pred': y_1.tolist(), 'smiles': df['smiles'].tolist(),
-                           'dist': df['distance'].tolist(), 'freq': df['frequency'].tolist()})
+        # get logp and sas
+        logp = getLogp(df['smiles'])
+        sa = getSA(df['smiles'])
+
+        return json.dumps({'status': 1, 'pred': y_1.tolist(), 
+                           'logp': logp, 'sa': sa,
+                           'smiles': df['smiles'].tolist(), 
+                           'dist': df['distance'].tolist(), 
+                           'freq': df['frequency'].tolist()})
+
+def getLogp(chemical):
+    prop = []
+    for smiles in chemical:
+        mol = Chem.MolFromSmiles(smiles)
+        logp = Crippen.MolLogP(mol)
+        prop.append(logp)
+
+    return prop
+
+def getSA(chemical):
+    prop = []
+    for smiles in chemical:
+        mol = Chem.MolFromSmiles(smiles)
+        sa = calculateScore(mol)
+        prop.append(sa)
+
+    return prop
+
+@app.route('/mi/property', methods=['POST'])
+def getPropertyPost():
+    smiles = request.form['smiles']
+    mol = Chem.MolFromSmiles(smiles)
+    logp = Crippen.MolLogP(mol)
+    sa = calculateScore(mol)
+
+    return json.dumps({'logp': logp, 'sa': sa})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', debug=False, port=9101)
